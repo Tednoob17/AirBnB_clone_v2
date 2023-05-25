@@ -1,25 +1,29 @@
 #!/usr/bin/python3
-"""
-Fabric script (based on the file 3-deploy_web_static.py) that
-deletes out-of-date archives, using the function do_clean
-"""
+import os
 from fabric.api import *
 
-
-env.hosts = ['54.237.45.220', '54.237.63.152']
-env.user = "ubuntu"
+env.hosts = ['100.25.19.204', '54.157.159.85']
 
 
 def do_clean(number=0):
-    """Deletes out-of-date archives"""
+    """Delete out-of-date archives.
 
-    number = int(number)
+    Args:
+        number (int): The number of archives to keep.
 
-    if number == 0:
-        number = 2
-    else:
-        number += 1
+    If number is 0 or 1, keeps only the most recent archive. If
+    number is 2, keeps the most and second-most recent archives,
+    etc.
+    """
+    number = 1 if int(number) == 0 else int(number)
 
-    local('cd versions ; ls -t | tail -n +{} | xargs rm -rf'.format(number))
-    dir = '/data/web_static/releases'
-    run('cd {} ; ls -t | tail -n +{} | xargs rm -rf'.format(dir, number))
+    archives = sorted(os.listdir("versions"))
+    [archives.pop() for i in range(number)]
+    with lcd("versions"):
+        [local("rm ./{}".format(a)) for a in archives]
+
+    with cd("/data/web_static/releases"):
+        archives = run("ls -tr").split()
+        archives = [a for a in archives if "web_static_" in a]
+        [archives.pop() for i in range(number)]
+        [run("rm -rf ./{}".format(a)) for a in archives]
