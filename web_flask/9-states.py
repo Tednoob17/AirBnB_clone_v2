@@ -1,49 +1,36 @@
 #!/usr/bin/python3
-""" Starts a Flask web application listening on 0.0.0.0, port 5000
-Routes:
-    /states: display a HTML page: (inside the tag BODY)
-        H1 tag: “States”
-        UL tag: with the list of all State objects present
-        in DBStorage sorted by name (A->Z) tip
-            LI tag: description of one State: <state.id>: <B><state.name></B>
-    /states/<id>: display a HTML page: (inside the tag BODY)
-        If a State object is found with this id:
-            H1 tag: “State: ”
-            H3 tag: “Cities:”
-            UL tag: with the list of City objects linked to the State
-            sorted by name (A->Z)
-                LI tag: description of one City: <city.id>: <B><city.name></B>
-    Otherwise:
-        H1 tag: “Not found!”
-"""
-from models import storage
-from flask import Flask
-from flask import render_template
+"""States and cities by state id route"""
 
+from flask import Flask, render_template
+from models import storage
+from os import environ as env
 app = Flask(__name__)
 
 
-@app.route("/states", strict_slashes=False)
-def states():
-    """ Displays an HTML page with a list of all states """
-    states = storage.all("State")
-    return render_template("9-states.html", state=states)
-
-
-@app.route("/states/<id>", strict_slashes=False)
-def states_id(id):
-    """ Displays an HTML page with info about <id>, if it exists """
-    for state in storage.all("State").values():
-        if state.id == id:
-            return render_template("9-states.html", state=state)
-    return render_template("9-states.html")
-
-
 @app.teardown_appcontext
-def teardown(exc):
-    """ Remove the current SQLAlchemy session """
+def shutdown_session(exception=None):
+    """reload storage after each request"""
     storage.close()
 
 
+@app.route("/states/<id>", strict_slashes=False)
+@app.route("/states", strict_slashes=False)
+def states_cities_list(id=None):
+    """Show states and cities by state id (or all states and cities)"""
+    states = storage.all("State")
+    if id is not None:
+        state = states.get('State.{}'.format(id))
+        states = [state] if state else []
+    else:
+        states = list(states.values())
+    states.sort(key=lambda x: x.name)
+    for state in states:
+        state.cities.sort(key=lambda x: x.name)
+    return render_template(
+        '9-states.html', states=states,
+        len=len(states), id=id
+    )
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0")
+    app.run(host='0.0.0.0', port=5000)
